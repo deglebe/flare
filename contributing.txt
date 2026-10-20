@@ -1,0 +1,9 @@
+my thoughts are best summed up by this post by lionel dricot:
+
+https://ploum.net/2026-10-01-pascal_wager.html
+
+as such, ai contributions will be rejected.
+
+currently looking for help on:
+- optimizing static routing
+- documentation

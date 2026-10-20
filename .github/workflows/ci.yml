@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: test
+        run: go test ./...
+
+      - name: test (sonic)
+        run: go test -tags flare_sonic ./...
+
+      - name: vet
+        run: go vet ./...
+
+      - name: build examples
+        run: go build -o /dev/null ./examples/...
