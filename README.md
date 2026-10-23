@@ -108,7 +108,7 @@ helpers stay optional and off the match path:
 | json | `JSON`, `BindJSON` (`-tags flare_sonic` optional) |
 | forms | `Bind`, `BindForm` |
 | content negotiate | `Negotiate` (html vs json stub) |
-| files | `Static(prefix, dir)`, `StaticFS(prefix, fs)` |
+| files | `Static` / `StaticFS`, `File` / `FileAttachment` |
 | client address | `ClientIP` (see below) |
 
 `Engine.Server` is an embedded `fasthttp.Server` with conservative defaults
