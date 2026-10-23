@@ -39,7 +39,7 @@ func main() {
 go get github.com/deglebe/flare
 ```
 
-requires a recent (>v1.20) go toolchain due to use of unsafe. for faster json
+requires go 1.25.5+ (see go.mod). for faster json
 encoding/decoding using bytedance's sonic (marginal boost on small apis):
 
 ```bash
