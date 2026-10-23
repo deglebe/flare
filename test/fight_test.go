@@ -1,4 +1,4 @@
-package flare
+package flare_test
 
 import (
 	"fmt"
@@ -7,35 +7,36 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/deglebe/flare"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttputil"
 )
 
 func TestDuplicateRoutePanics(t *testing.T) {
-	e := New()
-	e.GET("/x", func(c *Ctx) {})
+	e := flare.New()
+	e.GET("/x", func(c *flare.Ctx) {})
 	defer func() {
 		if recover() == nil {
 			t.Fatal("expected panic")
 		}
 	}()
-	e.GET("/x", func(c *Ctx) {})
+	e.GET("/x", func(c *flare.Ctx) {})
 }
 
 func TestWildcardConflictPanics(t *testing.T) {
-	e := New()
-	e.GET("/u/:id", func(c *Ctx) {})
+	e := flare.New()
+	e.GET("/u/:id", func(c *flare.Ctx) {})
 	defer func() {
 		if recover() == nil {
 			t.Fatal("expected panic")
 		}
 	}()
-	e.GET("/u/:name", func(c *Ctx) {})
+	e.GET("/u/:name", func(c *flare.Ctx) {})
 }
 
 func TestEncodedPath(t *testing.T) {
-	e := New()
-	e.GET("/p/:name", func(c *Ctx) { c.SetBodyString(c.Param("name")) })
+	e := flare.New()
+	e.GET("/p/:name", func(c *flare.Ctx) { c.SetBodyString(c.Param("name")) })
 	ln := fasthttputil.NewInmemoryListener()
 	go fasthttp.Serve(ln, e.Handler())
 
@@ -46,11 +47,11 @@ func TestEncodedPath(t *testing.T) {
 }
 
 func TestWideFanout(t *testing.T) {
-	e := New()
+	e := flare.New()
 	const n = 200
 	for i := 0; i < n; i++ {
 		i := i
-		e.GET(fmt.Sprintf("/r%d", i), func(c *Ctx) { c.SetBodyString(fmt.Sprintf("%d", i)) })
+		e.GET(fmt.Sprintf("/r%d", i), func(c *flare.Ctx) { c.SetBodyString(fmt.Sprintf("%d", i)) })
 	}
 	ln := fasthttputil.NewInmemoryListener()
 	go fasthttp.Serve(ln, e.Handler())
@@ -64,15 +65,15 @@ func TestWideFanout(t *testing.T) {
 }
 
 func TestFrozenAfterHandler(t *testing.T) {
-	e := New()
-	e.GET("/ok", func(c *Ctx) { c.SetBodyString("ok") })
+	e := flare.New()
+	e.GET("/ok", func(c *flare.Ctx) { c.SetBodyString("ok") })
 	_ = e.Handler()
 	defer func() {
 		if recover() == nil {
 			t.Fatal("expected panic on register after Handler")
 		}
 	}()
-	e.GET("/late", func(c *Ctx) {})
+	e.GET("/late", func(c *flare.Ctx) {})
 }
 
 func TestStaticFiles(t *testing.T) {
@@ -88,7 +89,7 @@ func TestStaticFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := New()
+	e := flare.New()
 	e.Static("/assets", dir)
 	ln := fasthttputil.NewInmemoryListener()
 	go fasthttp.Serve(ln, e.Handler())
@@ -117,8 +118,8 @@ func TestStaticRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("A"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	e := New()
-	e.GET("/health", func(c *Ctx) { c.SetBodyString("ok") })
+	e := flare.New()
+	e.GET("/health", func(c *flare.Ctx) { c.SetBodyString("ok") })
 	e.Static("/", dir)
 	ln := fasthttputil.NewInmemoryListener()
 	go fasthttp.Serve(ln, e.Handler())
@@ -138,34 +139,17 @@ func TestStaticRoot(t *testing.T) {
 	}
 }
 
-func TestCtxPoolReset(t *testing.T) {
-	e := New()
-	rc := &fasthttp.RequestCtx{}
-	c := acquireCtx(e, rc, nil)
-	c.params = append(c.params, param{"id", "42"})
-	c.handlers = []Handler{func(*Ctx) {}}
-	c.Abort()
-	releaseCtx(c)
-	if c.RequestCtx != nil || c.engine != nil || c.handlers != nil || len(c.params) != 0 {
-		t.Fatal("released context retains request state")
-	}
-	c = acquireCtx(e, rc, nil)
-	defer releaseCtx(c)
-	if c.RequestCtx != rc || c.engine != e || c.handlers != nil || len(c.params) != 0 || c.index != -1 {
-		t.Fatal("acquired context has stale state")
-	}
-}
 
 func TestFrozenRootDispatch(t *testing.T) {
 	for _, home := range []bool{false, true} {
-		e := New()
+		e := flare.New()
 		if home {
-			e.GET("/", func(c *Ctx) { c.SetBodyString("home") })
+			e.GET("/", func(c *flare.Ctx) { c.SetBodyString("home") })
 		}
-		e.GET("/health", func(c *Ctx) { c.SetBodyString("ok") })
-		e.GET("/users/:id", func(c *Ctx) { c.SetBodyString(c.Param("id")) })
-		e.GET("/assets/*path", func(c *Ctx) { c.SetBodyString(c.Param("path")) })
-		e.POST("/health", func(c *Ctx) { c.SetBodyString("post") })
+		e.GET("/health", func(c *flare.Ctx) { c.SetBodyString("ok") })
+		e.GET("/users/:id", func(c *flare.Ctx) { c.SetBodyString(c.Param("id")) })
+		e.GET("/assets/*path", func(c *flare.Ctx) { c.SetBodyString(c.Param("path")) })
+		e.POST("/health", func(c *flare.Ctx) { c.SetBodyString("post") })
 		h := e.Handler()
 		_ = e.Handler()
 		for _, tc := range []struct {

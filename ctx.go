@@ -2,8 +2,10 @@ package flare
 
 import (
 	"log"
+	"path/filepath"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -80,6 +82,28 @@ func (c *Ctx) JSON(code int, v any) {
 	c.SetStatusCode(code)
 	c.SetContentType("application/json")
 	c.SetBody(b)
+}
+
+// File sends a local file as the response body, do not pass user-supplied paths
+func (c *Ctx) File(path string) {
+	c.SendFileLiteral(path)
+}
+
+// FileAttachment sends a local file as a download named filename
+// empty filename uses filepath.Base(path), do not pass user-supplied paths
+func (c *Ctx) FileAttachment(path, filename string) {
+	if filename == "" {
+		filename = filepath.Base(path)
+	}
+	c.Response.Header.Set(fasthttp.HeaderContentDisposition,
+		`attachment; filename="`+escapeDisposition(filename)+`"`)
+	c.SendFileLiteral(path)
+}
+
+var dispositionEscaper = strings.NewReplacer(`\`, `\\`, `"`, `\"`)
+
+func escapeDisposition(s string) string {
+	return dispositionEscaper.Replace(s)
 }
 
 // response negotiation set w/ json as default

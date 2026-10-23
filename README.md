@@ -39,7 +39,7 @@ func main() {
 go get github.com/deglebe/flare
 ```
 
-requires a recent (>v1.20) go toolchain due to use of unsafe. for faster json
+requires go 1.25.5+ (see go.mod). for faster json
 encoding/decoding using bytedance's sonic (marginal boost on small apis):
 
 ```bash
@@ -108,7 +108,7 @@ helpers stay optional and off the match path:
 | json | `JSON`, `BindJSON` (`-tags flare_sonic` optional) |
 | forms | `Bind`, `BindForm` |
 | content negotiate | `Negotiate` (html vs json stub) |
-| files | `Static(prefix, dir)` |
+| files | `Static` / `StaticFS`, `File` / `FileAttachment` |
 | client address | `ClientIP` (see below) |
 
 `Engine.Server` is an embedded `fasthttp.Server` with conservative defaults
