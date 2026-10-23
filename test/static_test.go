@@ -82,3 +82,56 @@ func TestStaticFSGroup(t *testing.T) {
 		t.Fatalf("ungrouped path: %d", status)
 	}
 }
+
+func TestStaticFSRoot(t *testing.T) {
+	fsys := fstest.MapFS{
+		"index.html": {Data: []byte("<h1>hi</h1>")},
+		"a.txt":      {Data: []byte("A")},
+	}
+	e := flare.New()
+	e.GET("/health", func(c *flare.Ctx) { c.SetBodyString("ok") })
+	e.StaticFS("/", fsys)
+	ln := fasthttputil.NewInmemoryListener()
+	go fasthttp.Serve(ln, e.Handler())
+
+	if get(t, ln, "/health") != "ok" {
+		t.Fatal("health")
+	}
+	if get(t, ln, "/") != "<h1>hi</h1>" {
+		t.Fatalf("index: %q", get(t, ln, "/"))
+	}
+	if get(t, ln, "/a.txt") != "A" {
+		t.Fatal("file")
+	}
+	status, body, _ := doReqFull(t, ln, "HEAD", "/a.txt", nil)
+	if status != http.StatusOK || body != "" {
+		t.Fatalf("HEAD root file: %d %q", status, body)
+	}
+	status, _ = getStatus(t, ln, "/missing")
+	if status != http.StatusNotFound {
+		t.Fatalf("missing: %d", status)
+	}
+}
+
+func TestStaticFSGroupRoot(t *testing.T) {
+	fsys := fstest.MapFS{
+		"index.html": {Data: []byte("<h1>g</h1>")},
+		"b.txt":      {Data: []byte("B")},
+	}
+	e := flare.New()
+	e.Group("/app").StaticFS("/", fsys)
+	ln := fasthttputil.NewInmemoryListener()
+	go fasthttp.Serve(ln, e.Handler())
+
+	// group Static("/") registers /app/ + /app/*filepath (prefix concat)
+	if get(t, ln, "/app/") != "<h1>g</h1>" {
+		t.Fatalf("group index: %q", get(t, ln, "/app/"))
+	}
+	if get(t, ln, "/app/b.txt") != "B" {
+		t.Fatal("group file")
+	}
+	status, _ := getStatus(t, ln, "/b.txt")
+	if status != http.StatusNotFound {
+		t.Fatalf("site root leak: %d", status)
+	}
+}
