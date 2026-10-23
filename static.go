@@ -1,6 +1,7 @@
 package flare
 
 import (
+	"io/fs"
 	"strings"
 
 	"github.com/valyala/fasthttp"
@@ -10,7 +11,16 @@ import (
 // prefix / serves the directory at the site root
 func (e *Engine) Static(prefix, rootDir string) {
 	prefix = cleanStaticPrefix(prefix)
-	h := fileHandler(prefix, rootDir)
+	e.registerStatic(prefix, fileHandler(prefix, rootDir))
+}
+
+// serve from fsys under prefix (get+head); for embed.FS / os.DirFS
+func (e *Engine) StaticFS(prefix string, fsys fs.FS) {
+	prefix = cleanStaticPrefix(prefix)
+	e.registerStatic(prefix, fsHandler(prefix, fsys))
+}
+
+func (e *Engine) registerStatic(prefix string, h Handler) {
 	if prefix == "/" {
 		e.GET("/", h)
 		e.HEAD("/", h)
@@ -26,7 +36,17 @@ func (e *Engine) Static(prefix, rootDir string) {
 func (r *Router) Static(prefix, rootDir string) {
 	prefix = cleanStaticPrefix(prefix)
 	full := cleanStaticPrefix(r.prefix + prefix)
-	h := fileHandler(full, rootDir)
+	r.registerStatic(prefix, fileHandler(full, rootDir))
+}
+
+// mount Engine.StaticFS under this group's prefix
+func (r *Router) StaticFS(prefix string, fsys fs.FS) {
+	prefix = cleanStaticPrefix(prefix)
+	full := cleanStaticPrefix(r.prefix + prefix)
+	r.registerStatic(prefix, fsHandler(full, fsys))
+}
+
+func (r *Router) registerStatic(prefix string, h Handler) {
 	if prefix == "/" {
 		r.GET("/", h)
 		r.HEAD("/", h)
@@ -49,18 +69,23 @@ func cleanStaticPrefix(prefix string) string {
 }
 
 func fileHandler(prefix, rootDir string) Handler {
+	return staticHandler(prefix, &fasthttp.FS{Root: rootDir})
+}
+
+func fsHandler(prefix string, fsys fs.FS) Handler {
+	return staticHandler(prefix, &fasthttp.FS{FS: fsys})
+}
+
+func staticHandler(prefix string, fsys *fasthttp.FS) Handler {
 	prefix = cleanStaticPrefix(prefix)
 	strip := len(prefix)
 	if prefix == "/" {
 		strip = 0
 	}
-	fs := &fasthttp.FS{
-		Root:               rootDir,
-		IndexNames:         []string{"index.html"},
-		GenerateIndexPages: false,
-		AcceptByteRange:    true,
-		PathRewrite:        fasthttp.NewPathPrefixStripper(strip),
-	}
-	h := fs.NewRequestHandler()
+	fsys.IndexNames = []string{"index.html"}
+	fsys.GenerateIndexPages = false
+	fsys.AcceptByteRange = true
+	fsys.PathRewrite = fasthttp.NewPathPrefixStripper(strip)
+	h := fsys.NewRequestHandler()
 	return func(c *Ctx) { h(c.RequestCtx) }
 }

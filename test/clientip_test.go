@@ -1,19 +1,20 @@
-package flare
+package flare_test
 
 import (
 	"net"
 	"strconv"
 	"testing"
 
+	"github.com/deglebe/flare"
 	"github.com/valyala/fasthttp"
 )
 
 func TestClientIP(t *testing.T) {
-	e := New()
+	e := flare.New()
 	if err := e.SetTrustedProxies("10.0.0.0/8", "192.168.1.1"); err != nil {
 		t.Fatal(err)
 	}
-	e.GET("/ip", func(c *Ctx) { c.SetBodyString(c.ClientIP()) })
+	e.GET("/ip", func(c *flare.Ctx) { c.SetBodyString(c.ClientIP()) })
 	h := e.Handler()
 
 	got := clientIPBody(t, h, "203.0.113.9:443", nil)
@@ -43,8 +44,8 @@ func TestClientIP(t *testing.T) {
 	}
 
 	// no trusted proxies -> headers ignoredj
-	e2 := New()
-	e2.GET("/ip", func(c *Ctx) { c.SetBodyString(c.ClientIP()) })
+	e2 := flare.New()
+	e2.GET("/ip", func(c *flare.Ctx) { c.SetBodyString(c.ClientIP()) })
 	h2 := e2.Handler()
 	got = clientIPBody(t, h2, "10.0.0.2:80", map[string]string{
 		"X-Forwarded-For": "198.51.100.4",
@@ -55,7 +56,7 @@ func TestClientIP(t *testing.T) {
 }
 
 func TestSetTrustedProxiesInvalid(t *testing.T) {
-	e := New()
+	e := flare.New()
 	if err := e.SetTrustedProxies("not-an-ip"); err == nil {
 		t.Fatal("expected error")
 	}

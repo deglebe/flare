@@ -1,22 +1,24 @@
-package flare
+package flare_test
 
 import (
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/deglebe/flare"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttputil"
 )
 
 func TestStaticParamCatch(t *testing.T) {
-	e := New()
-	e.GET("/", func(c *Ctx) { c.SetBodyString("home") })
-	e.GET("/users/:id", func(c *Ctx) { c.SetBodyString(c.Param("id")) })
-	e.GET("/assets/*filepath", func(c *Ctx) { c.SetBodyString(c.Param("filepath")) })
-	e.GET("/users/:id/posts/:pid", func(c *Ctx) {
+	e := flare.New()
+	e.GET("/", func(c *flare.Ctx) { c.SetBodyString("home") })
+	e.GET("/users/:id", func(c *flare.Ctx) { c.SetBodyString(c.Param("id")) })
+	e.GET("/assets/*filepath", func(c *flare.Ctx) { c.SetBodyString(c.Param("filepath")) })
+	e.GET("/users/:id/posts/:pid", func(c *flare.Ctx) {
 		c.SetBodyString(c.Param("id") + ":" + c.Param("pid"))
 	})
 
@@ -38,17 +40,17 @@ func TestStaticParamCatch(t *testing.T) {
 }
 
 func TestGroupMiddleware(t *testing.T) {
-	e := New()
+	e := flare.New()
 	var order []string
-	e.Use(func(c *Ctx) {
+	e.Use(func(c *flare.Ctx) {
 		order = append(order, "e")
 		c.Next()
 	})
-	api := e.Group("/api", func(c *Ctx) {
+	api := e.Group("/api", func(c *flare.Ctx) {
 		order = append(order, "g")
 		c.Next()
 	})
-	api.GET("/x", func(c *Ctx) {
+	api.GET("/x", func(c *flare.Ctx) {
 		order = append(order, "h")
 		c.SetBodyString("ok")
 	})
@@ -64,26 +66,11 @@ func TestGroupMiddleware(t *testing.T) {
 	}
 }
 
-func get(t *testing.T, ln *fasthttputil.InmemoryListener, path string) string {
-	t.Helper()
-	client := http.Client{
-		Transport: &http.Transport{
-			Dial: func(network, addr string) (net.Conn, error) { return ln.Dial() },
-		},
-	}
-	res, err := client.Get("http://flare" + path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer res.Body.Close()
-	b, _ := io.ReadAll(res.Body)
-	return string(b)
-}
 
 func TestTrailingSlashStrict(t *testing.T) {
-	e := New()
-	e.GET("/a", func(c *Ctx) { c.SetBodyString("a") })
-	e.GET("/b/", func(c *Ctx) { c.SetBodyString("b") })
+	e := flare.New()
+	e.GET("/a", func(c *flare.Ctx) { c.SetBodyString("a") })
+	e.GET("/b/", func(c *flare.Ctx) { c.SetBodyString("b") })
 
 	ln := fasthttputil.NewInmemoryListener()
 	go fasthttp.Serve(ln, e.Handler())
@@ -105,7 +92,7 @@ func TestTrailingSlashStrict(t *testing.T) {
 }
 
 func TestServerDefaults(t *testing.T) {
-	e := New()
+	e := flare.New()
 	if e.Server.MaxRequestBodySize != 4<<20 {
 		t.Fatalf("body=%d", e.Server.MaxRequestBodySize)
 	}
@@ -119,13 +106,13 @@ func TestServerDefaults(t *testing.T) {
 }
 
 func TestNoRouteNoMethod(t *testing.T) {
-	e := New()
-	e.GET("/only-get", func(c *Ctx) { c.SetBodyString("ok") })
-	e.NoRoute(func(c *Ctx) {
+	e := flare.New()
+	e.GET("/only-get", func(c *flare.Ctx) { c.SetBodyString("ok") })
+	e.NoRoute(func(c *flare.Ctx) {
 		c.SetStatusCode(fasthttp.StatusNotFound)
 		c.SetBodyString("missing")
 	})
-	e.NoMethod(func(c *Ctx) {
+	e.NoMethod(func(c *flare.Ctx) {
 		c.SetStatusCode(fasthttp.StatusMethodNotAllowed)
 		c.SetBodyString("bad-method")
 	})
@@ -154,8 +141,8 @@ func TestNoRouteNoMethod(t *testing.T) {
 }
 
 func TestJSON(t *testing.T) {
-	e := New()
-	e.GET("/u", func(c *Ctx) {
+	e := flare.New()
+	e.GET("/u", func(c *flare.Ctx) {
 		c.JSON(fasthttp.StatusOK, map[string]string{"n": "ada"})
 	})
 	ln := fasthttputil.NewInmemoryListener()
@@ -167,8 +154,8 @@ func TestJSON(t *testing.T) {
 }
 
 func TestCtxHelpers(t *testing.T) {
-	e := New()
-	e.POST("/echo", func(c *Ctx) {
+	e := flare.New()
+	e.POST("/echo", func(c *flare.Ctx) {
 		if c.GetHeader("X-Token") != "secret" {
 			c.AbortWithStatusJSON(fasthttp.StatusUnauthorized, map[string]string{"err": "auth"})
 			return
@@ -180,15 +167,15 @@ func TestCtxHelpers(t *testing.T) {
 		}
 		c.JSON(fasthttp.StatusOK, map[string]string{"q": c.Query("q"), "n": in["n"]})
 	})
-	e.GET("/n/:id", func(c *Ctx) {
+	e.GET("/n/:id", func(c *flare.Ctx) {
 		id, err := c.ParamInt("id")
 		if err != nil {
 			c.AbortWithStatus(400)
 			return
 		}
-		c.Negotiate(200, Accept{JSON: map[string]int{"id": id}, HTML: "<b>id</b>"})
+		c.Negotiate(200, flare.Accept{JSON: map[string]int{"id": id}, HTML: "<b>id</b>"})
 	})
-	e.POST("/form", func(c *Ctx) {
+	e.POST("/form", func(c *flare.Ctx) {
 		var in struct {
 			Name string `form:"name"`
 		}
@@ -217,7 +204,7 @@ func TestCtxHelpers(t *testing.T) {
 		t.Fatalf("%d %s", res.StatusCode, b)
 	}
 	var got map[string]string
-	if err := jsonUnmarshal(b, &got); err != nil || got["n"] != "ada" || got["q"] != "hi" {
+	if err := json.Unmarshal(b, &got); err != nil || got["n"] != "ada" || got["q"] != "hi" {
 		t.Fatalf("%d %s", res.StatusCode, b)
 	}
 
@@ -247,8 +234,8 @@ func TestCtxHelpers(t *testing.T) {
 }
 
 func TestAbortRecover(t *testing.T) {
-	e := New()
-	e.Use(Recover(), func(c *Ctx) {
+	e := flare.New()
+	e.Use(flare.Recover(), func(c *flare.Ctx) {
 		if string(c.Path()) == "/deny" {
 			c.SetStatusCode(fasthttp.StatusForbidden)
 			c.Abort()
@@ -256,9 +243,9 @@ func TestAbortRecover(t *testing.T) {
 		}
 		c.Next()
 	})
-	e.GET("/ok", func(c *Ctx) { c.SetBodyString("ok") })
-	e.GET("/deny", func(c *Ctx) { c.SetBodyString("nope") })
-	e.GET("/boom", func(c *Ctx) { panic("x") })
+	e.GET("/ok", func(c *flare.Ctx) { c.SetBodyString("ok") })
+	e.GET("/deny", func(c *flare.Ctx) { c.SetBodyString("nope") })
+	e.GET("/boom", func(c *flare.Ctx) { panic("x") })
 
 	ln := fasthttputil.NewInmemoryListener()
 	go fasthttp.Serve(ln, e.Handler())
@@ -276,25 +263,10 @@ func TestAbortRecover(t *testing.T) {
 	}
 }
 
-func getStatus(t *testing.T, ln *fasthttputil.InmemoryListener, path string) (int, string) {
-	t.Helper()
-	client := http.Client{
-		Transport: &http.Transport{
-			Dial: func(network, addr string) (net.Conn, error) { return ln.Dial() },
-		},
-	}
-	res, err := client.Get("http://flare" + path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer res.Body.Close()
-	b, _ := io.ReadAll(res.Body)
-	return res.StatusCode, string(b)
-}
 
 func BenchmarkParam(b *testing.B) {
-	e := New()
-	e.GET("/users/:id", func(c *Ctx) {})
+	e := flare.New()
+	e.GET("/users/:id", func(c *flare.Ctx) {})
 	h := e.Handler()
 	rc := &fasthttp.RequestCtx{}
 	rc.Request.SetRequestURI("/users/42")
@@ -307,8 +279,8 @@ func BenchmarkParam(b *testing.B) {
 }
 
 func BenchmarkStatic(b *testing.B) {
-	e := New()
-	e.GET("/health", func(c *Ctx) {})
+	e := flare.New()
+	e.GET("/health", func(c *flare.Ctx) {})
 	h := e.Handler()
 	rc := &fasthttp.RequestCtx{}
 	rc.Request.SetRequestURI("/health")
@@ -321,8 +293,8 @@ func BenchmarkStatic(b *testing.B) {
 }
 
 func BenchmarkJSON(b *testing.B) {
-	e := New()
-	e.GET("/u", func(c *Ctx) { c.JSON(200, map[string]int{"id": 1}) })
+	e := flare.New()
+	e.GET("/u", func(c *flare.Ctx) { c.JSON(200, map[string]int{"id": 1}) })
 	h := e.Handler()
 	rc := &fasthttp.RequestCtx{}
 	rc.Request.SetRequestURI("/u")
