@@ -14,6 +14,7 @@ const (
 	mCount
 )
 
+// method -> tree slot, or -1 if unsupported
 func methodID(m string) int {
 	switch m {
 	case fasthttp.MethodGet:

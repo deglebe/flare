@@ -7,9 +7,10 @@ import (
 	"strings"
 )
 
+// returned by Bind for content-types other than json/form
 var ErrUnsupportedMediaType = errors.New("flare: unsupported media type")
 
-// Bind decodes the body from content-type (json or form-urlencoded)
+// decode body from content-type (json or form-urlencoded)
 // call from handlers only, not from router hot path
 func (c *Ctx) Bind(v any) error {
 	switch mediaType(c.GetHeader("Content-Type")) {
@@ -28,7 +29,7 @@ func (c *Ctx) Bind(v any) error {
 	}
 }
 
-// fills exported string/int fields from post args (form, else join, else name)
+// fill exported string/int fields from post args (form tag, else json, else name)
 // reflect-based, also keep off hot path
 func (c *Ctx) BindForm(v any) error {
 	rv := reflect.ValueOf(v)
@@ -67,6 +68,7 @@ func (c *Ctx) BindForm(v any) error {
 	return nil
 }
 
+// form tag, else json, else field name
 func formKey(f reflect.StructField) string {
 	if tag := f.Tag.Get("form"); tag != "" {
 		return strings.Split(tag, ",")[0]
@@ -77,6 +79,7 @@ func formKey(f reflect.StructField) string {
 	return f.Name
 }
 
+// strip params/; from content-type
 func mediaType(ct string) string {
 	if i := strings.IndexByte(ct, ';'); i >= 0 {
 		ct = ct[:i]
@@ -84,6 +87,7 @@ func mediaType(ct string) string {
 	return strings.ToLower(strings.TrimSpace(ct))
 }
 
+// true when text/html appears before application/json in Accept
 func prefersHTML(accept string) bool {
 	if accept == "" {
 		return false

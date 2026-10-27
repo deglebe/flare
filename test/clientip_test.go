@@ -9,6 +9,8 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+// clientip: trusted proxies, xff walk, unconfigured ignore
+
 func TestClientIP(t *testing.T) {
 	e := flare.New()
 	if err := e.SetTrustedProxies("10.0.0.0/8", "192.168.1.1"); err != nil {
@@ -43,7 +45,7 @@ func TestClientIP(t *testing.T) {
 		t.Fatalf("x-real-ip: %q", got)
 	}
 
-	// no trusted proxies -> headers ignoredj
+	// no trusted proxies -> headers ignored
 	e2 := flare.New()
 	e2.GET("/ip", func(c *flare.Ctx) { c.SetBodyString(c.ClientIP()) })
 	h2 := e2.Handler()
@@ -62,6 +64,7 @@ func TestSetTrustedProxiesInvalid(t *testing.T) {
 	}
 }
 
+// run h with remote addr + headers; return response body
 func clientIPBody(t *testing.T, h fasthttp.RequestHandler, remote string, headers map[string]string) string {
 	t.Helper()
 	host, portStr, err := net.SplitHostPort(remote)

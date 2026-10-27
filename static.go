@@ -58,6 +58,7 @@ func (r *Router) registerStatic(prefix string, h Handler) {
 	r.HEAD(prefix+"/*filepath", h)
 }
 
+// require leading /; strip trailing slashes (except "/")
 func cleanStaticPrefix(prefix string) string {
 	if prefix == "" || prefix[0] != '/' {
 		panic("flare: Static prefix must begin with '/'")
@@ -68,6 +69,7 @@ func cleanStaticPrefix(prefix string) string {
 	return prefix
 }
 
+// fasthttp.FS handler; strips prefix from request path
 func fileHandler(prefix, rootDir string) Handler {
 	return staticHandler(prefix, &fasthttp.FS{Root: rootDir})
 }
