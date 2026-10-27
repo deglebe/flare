@@ -13,6 +13,8 @@ import (
 	"github.com/valyala/fasthttp/fasthttputil"
 )
 
+// flare: routing, groups/mw, slash strictness, bind/json, abort/recover, benches
+
 func TestStaticParamCatch(t *testing.T) {
 	e := flare.New()
 	e.GET("/", func(c *flare.Ctx) { c.SetBodyString("home") })
@@ -65,7 +67,6 @@ func TestGroupMiddleware(t *testing.T) {
 		t.Fatalf("order=%v", order)
 	}
 }
-
 
 func TestTrailingSlashStrict(t *testing.T) {
 	e := flare.New()
@@ -262,7 +263,6 @@ func TestAbortRecover(t *testing.T) {
 		t.Fatalf("boom: %d", status)
 	}
 }
-
 
 func BenchmarkParam(b *testing.B) {
 	e := flare.New()

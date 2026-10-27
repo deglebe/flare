@@ -7,7 +7,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-// this is a fasthttp router
+// fasthttp router
 // trailing slashes are significant and never redirected/stripped
 type Engine struct {
 	trees  [mCount]*node
@@ -24,16 +24,18 @@ type Engine struct {
 	trustedProxies  []*net.IPNet
 	remoteIPHeaders []string // nil -> X-Forwarded-For, X-Real-IP
 
-	// holds fasthttp limits/timeouts
+	// fasthttp limits/timeouts; override before Listen
 	Server fasthttp.Server
 }
 
+// route group with shared prefix and middleware
 type Router struct {
 	engine *Engine
 	prefix string
 	mws    []Handler
 }
 
+// new engine w/ conservative server defaults (4mib body, 10s r/w, 60s idle)
 func New() *Engine {
 	return &Engine{
 		Server: fasthttp.Server{
@@ -45,15 +47,19 @@ func New() *Engine {
 	}
 }
 
+// handlers for unmatched paths (404)
 func (e *Engine) NoRoute(h ...Handler) {
 	e.mustWritable()
 	e.noRoute = append([]Handler(nil), h...)
 }
+
+// handlers when path exists under another method (405)
 func (e *Engine) NoMethod(h ...Handler) {
 	e.mustWritable()
 	e.noMethod = append([]Handler(nil), h...)
 }
 
+// append global middleware; baked into routes at registration
 func (e *Engine) Use(mws ...Handler) {
 	e.mustWritable()
 	e.mws = append(e.mws, mws...)
@@ -68,6 +74,7 @@ func (e *Engine) OPTIONS(path string, h ...Handler) {
 	e.handle(fasthttp.MethodOptions, path, h)
 }
 
+// group under prefix with optional middleware
 func (e *Engine) Group(prefix string, mws ...Handler) *Router {
 	return &Router{engine: e, prefix: prefix, mws: append([]Handler(nil), mws...)}
 }
@@ -79,12 +86,14 @@ func (e *Engine) handle(method, path string, hs []Handler) {
 	e.addRoute(method, path, stack)
 }
 
+// panic if routes frozen after Handler/Listen
 func (e *Engine) mustWritable() {
 	if e.frozen {
 		panic("flare: router locked after Handler/Listen")
 	}
 }
 
+// register method+path; panics on unknown method or duplicate
 func (e *Engine) addRoute(method, path string, handlers []Handler) {
 	e.mustWritable()
 	id := methodID(method)
@@ -106,8 +115,10 @@ func (e *Engine) addRoute(method, path string, handlers []Handler) {
 	root.addRoute(path, handlers)
 }
 
+// append group middleware
 func (r *Router) Use(mws ...Handler) { r.mws = append(r.mws, mws...) }
 
+// nest group under this prefix
 func (r *Router) Group(prefix string, mws ...Handler) *Router {
 	return &Router{
 		engine: r.engine,
@@ -131,6 +142,7 @@ func (r *Router) handle(method, path string, hs []Handler) {
 	r.engine.addRoute(method, r.prefix+path, stack)
 }
 
+// lock routes, collapse empty roots, build static path tables
 func (e *Engine) freeze() {
 	if e.frozen {
 		return
@@ -158,6 +170,7 @@ func (e *Engine) freeze() {
 	}
 }
 
+// run handlers; single-handler skips Next loop
 func (e *Engine) dispatch(c *Ctx, handlers []Handler) {
 	if len(handlers) == 1 {
 		handlers[0](c)
@@ -167,6 +180,7 @@ func (e *Engine) dispatch(c *Ctx, handlers []Handler) {
 	c.Next()
 }
 
+// fasthttp handler; freezes routes on first call
 func (e *Engine) Handler() fasthttp.RequestHandler {
 	e.freeze()
 	return func(rc *fasthttp.RequestCtx) {
@@ -212,6 +226,7 @@ func (e *Engine) Handler() fasthttp.RequestHandler {
 	}
 }
 
+// true if path matches under any method
 func (e *Engine) pathExists(path string) bool {
 	var ps []param
 	for id := 0; id < mCount; id++ {
@@ -237,6 +252,7 @@ func joinHandlers(a, b []Handler) []Handler {
 	return out
 }
 
+// listen on addr (freezes via Handler)
 func (e *Engine) Listen(addr string) error {
 	e.Server.Handler = e.Handler()
 	return e.Server.ListenAndServe(addr)

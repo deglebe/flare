@@ -12,12 +12,14 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+// request handler; call Next to continue the stack
 type Handler func(*Ctx)
 
 type param struct {
 	key, value string
 }
 
+// pooled request context wrapping *fasthttp.RequestCtx
 type Ctx struct {
 	*fasthttp.RequestCtx
 	engine   *Engine
@@ -48,6 +50,7 @@ func releaseCtx(c *Ctx) {
 	ctxPool.Put(c)
 }
 
+// route param by name, or ""
 func (c *Ctx) Param(key string) string {
 	for i := range c.params {
 		if c.params[i].key == key {
@@ -57,22 +60,27 @@ func (c *Ctx) Param(key string) string {
 	return ""
 }
 
+// Param as int
 func (c *Ctx) ParamInt(key string) (int, error) {
 	return strconv.Atoi(c.Param(key))
 }
 
+// request header value, or ""
 func (c *Ctx) GetHeader(key string) string {
 	return b2s(c.Request.Header.Peek(key))
 }
 
+// query arg value, or ""
 func (c *Ctx) Query(key string) string {
 	return b2s(c.QueryArgs().Peek(key))
 }
 
+// unmarshal post body as json into v
 func (c *Ctx) BindJSON(v any) error {
 	return jsonUnmarshal(c.PostBody(), v)
 }
 
+// write v as json w/ status; 500 on marshal error
 func (c *Ctx) JSON(code int, v any) {
 	b, err := jsonMarshal(v)
 	if err != nil {
@@ -125,20 +133,25 @@ func (c *Ctx) Negotiate(code int, a Accept) {
 
 const abortIndex = 1 << 20
 
+// stop the handler stack
 func (c *Ctx) Abort() { c.index = abortIndex }
 
+// true after Abort / AbortWith*
 func (c *Ctx) IsAborted() bool { return c.index >= abortIndex }
 
+// set status and abort
 func (c *Ctx) AbortWithStatus(code int) {
 	c.SetStatusCode(code)
 	c.Abort()
 }
 
+// write json, then abort
 func (c *Ctx) AbortWithStatusJSON(code int, v any) {
 	c.JSON(code, v)
 	c.Abort()
 }
 
+// run remaining handlers in the stack
 func (c *Ctx) Next() {
 	c.index++
 	for c.index < len(c.handlers) {
@@ -170,6 +183,7 @@ func RecoverWith(fn func(*Ctx, any)) Handler {
 	}
 }
 
+// bytes -> string w/o copy; valid while b lives
 func b2s(b []byte) string {
 	return unsafe.String(unsafe.SliceData(b), len(b))
 }

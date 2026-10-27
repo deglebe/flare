@@ -12,6 +12,8 @@ import (
 	"github.com/valyala/fasthttp/fasthttputil"
 )
 
+// fight: panics, freeze, fanout, static files, ctx pool, root dispatch
+
 func TestDuplicateRoutePanics(t *testing.T) {
 	e := flare.New()
 	e.GET("/x", func(c *flare.Ctx) {})

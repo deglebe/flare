@@ -9,12 +9,14 @@ import (
 	"github.com/valyala/fasthttp/fasthttputil"
 )
 
+// GET path over inmemory ln; return body
 func get(t *testing.T, ln *fasthttputil.InmemoryListener, path string) string {
 	t.Helper()
 	_, body := getStatus(t, ln, path)
 	return body
 }
 
+// GET path over inmemory ln; return status + body
 func getStatus(t *testing.T, ln *fasthttputil.InmemoryListener, path string) (int, string) {
 	t.Helper()
 	status, body, _ := doReqFull(t, ln, "GET", path, nil)

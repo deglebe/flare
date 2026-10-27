@@ -36,6 +36,7 @@ func (e *Engine) SetRemoteIPHeaders(headers ...string) {
 	e.remoteIPHeaders = append([]string(nil), headers...)
 }
 
+// cidr or bare ip -> *net.IPNet (/32 or /128 for bare)
 func parseProxyNet(p string) (*net.IPNet, error) {
 	if !strings.Contains(p, "/") {
 		ip := net.ParseIP(p)
@@ -55,6 +56,7 @@ func parseProxyNet(p string) (*net.IPNet, error) {
 	return n, nil
 }
 
+// true if ip is inside any SetTrustedProxies cidr
 func (e *Engine) isTrustedProxy(ip net.IP) bool {
 	if ip == nil || len(e.trustedProxies) == 0 {
 		return false
@@ -91,11 +93,12 @@ func (c *Ctx) ClientIP() string {
 	return remote.String()
 }
 
+// walk xff-style list r->l, skip trusted hops; else first valid l->r
 func clientIPFromHeader(raw string, e *Engine) string {
 	if raw == "" {
 		return ""
 	}
-	// r->l w/o split
+	// r->l w/o alloc split
 	for end := len(raw); end > 0; {
 		start := end
 		for start > 0 && raw[start-1] != ',' {

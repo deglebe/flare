@@ -8,6 +8,7 @@ const (
 	ntCatchAll
 )
 
+// radix tree node; one tree per http method
 type node struct {
 	path     string
 	nType    nodeType
@@ -17,6 +18,7 @@ type node struct {
 	wild     *node
 }
 
+// insert path; panics on duplicate or wildcard conflict
 func (n *node) addRoute(path string, handlers []Handler) {
 	for {
 		if path == "" {
@@ -127,6 +129,7 @@ func (n *node) findChild(c byte) *node {
 	return nil
 }
 
+// match path, append params; nil handlers on miss
 func (n *node) getValue(path string, params *[]param) []Handler {
 	for {
 		switch n.nType {
@@ -185,6 +188,7 @@ func (n *node) getValue(path string, params *[]param) []Handler {
 	}
 }
 
+// first : or * index, or -1; panics if wildcard not after /
 func wildcardIndex(path string) int {
 	for i := 0; i < len(path); i++ {
 		if path[i] == ':' || path[i] == '*' {
