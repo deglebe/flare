@@ -1,9 +1,54 @@
-my thoughts are best summed up by this post by lionel dricot:
+contributor guidelines (as of: 2026-10-27)
+
+0. getting involved
+
+what we want:
+- small, focused pull requests (large features need further discussion)
+- code that improves efficiency, makes things faster, or safer
+- clean, coherent documentation
+
+what we do not want:
+- large meta-changes without prior discussion
+- auto-generated boilerplate or any code at all from llms
+- prs that only add needless tests
+
+this is, at its core, a learning project. please get involved!
+
+1. llm policy
+
+the reasoning for the following is best summed up by this post by lionel dricot:
 
 https://ploum.net/2026-10-01-pascal_wager.html
 
-as such, ai contributions will be rejected.
+as such, llm contributions will be rejected. this includes, but is not limited
+to:
+- no llm usage for code generation
+- no llm usage for documentation
+- no llm usage for reviews
 
-currently looking for help on:
-- optimizing static routing
-- documentation
+while this is, in some cases, impossible to enforce, obvious usage will result
+in an indefinite ban on contribution. we want contributors! but make sure it is
+actually *you* contributing.
+
+2. pull request workflow
+
+with regards to merge policy, this project is a squash and merge project, in
+order to prevent cluttering main with little deltas.
+
+when submitting a pr:
+- write a good commit message. follow the next section's message guidelines
+- after review, ask reviewer to squash and merge
+- keep the original message so that no context is lost
+
+3. git messages
+
+follow this structure:
+
+<type>(scope): <message>
+
+for example:
+- feat(foo): bar makes call to func
+- docs(tree): clarified unclear functionality on traversal
+- test(feature): added rigorous test on feature under condition
+
+give a message body for more complex commits.
