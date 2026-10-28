@@ -109,6 +109,7 @@ helpers stay optional and off the match path:
 | forms | `Bind`, `BindForm` |
 | content negotiate | `Negotiate` (html vs json stub) |
 | files | `Static` / `StaticFS`, `File` / `FileAttachment` |
+| redirect | `Redirect` (301/302/307/308; other codes become 302) |
 | client address | `ClientIP` (see below) |
 
 `Engine.Server` is an embedded `fasthttp.Server` with conservative defaults

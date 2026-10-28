@@ -92,6 +92,12 @@ func (c *Ctx) JSON(code int, v any) {
 	c.SetBody(b)
 }
 
+// Redirect sets Location to url with status, use 301/302/307/308;
+// fasthttp replaces any other code with 302
+func (c *Ctx) Redirect(code int, url string) {
+	c.RequestCtx.Redirect(url, code)
+}
+
 // File sends a local file as the response body, do not pass user-supplied paths
 func (c *Ctx) File(path string) {
 	c.SendFileLiteral(path)
