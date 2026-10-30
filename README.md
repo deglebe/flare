@@ -75,8 +75,20 @@ curl -s localhost:8080/health
 ### routing
 
 each http method owns a radix tree (`:param` and `*catchall`). trailing slashes
-are **strict**: `/a` and `/a/` are different routes. flare never redirects or
-strips them.
+are **strict** by default: `/a` and `/a/` are different routes.
+
+```sh
+# registered GET /users; wrong slash 404s
+curl -i localhost:8080/users/   # 404
+curl -i localhost:8080/users    # 200
+```
+
+set `e.RedirectTrailingSlash = true` to redirect the flipped slash instead
+(301 for GET, 307 otherwise):
+
+```sh
+curl -i localhost:8080/users/   # 301 Location: .../users
+```
 
 registration freezes on the first `Handler()`/`Listen()`. at freeze, flare:
 
@@ -109,6 +121,7 @@ helpers stay optional and off the match path:
 | forms | `Bind`, `BindForm` |
 | content negotiate | `Negotiate` (html vs json stub) |
 | files | `Static` / `StaticFS`, `File` / `FileAttachment` |
+| redirect | `Redirect` (301/302/307/308; other codes become 302) |
 | client address | `ClientIP` (see below) |
 
 `Engine.Server` is an embedded `fasthttp.Server` with conservative defaults
