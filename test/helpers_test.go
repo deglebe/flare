@@ -31,11 +31,28 @@ func doReq(t *testing.T, ln *fasthttputil.InmemoryListener, method, path string,
 
 func doReqFull(t *testing.T, ln *fasthttputil.InmemoryListener, method, path string, hdr http.Header) (int, string, http.Header) {
 	t.Helper()
-	client := http.Client{
+	return doReqClient(t, followClient(ln), method, path, hdr)
+}
+
+// client that does not follow redirects (inspect 3xx)
+func noFollowClient(ln *fasthttputil.InmemoryListener) *http.Client {
+	c := followClient(ln)
+	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	return c
+}
+
+func followClient(ln *fasthttputil.InmemoryListener) *http.Client {
+	return &http.Client{
 		Transport: &http.Transport{
 			Dial: func(network, addr string) (net.Conn, error) { return ln.Dial() },
 		},
 	}
+}
+
+func doReqClient(t *testing.T, client *http.Client, method, path string, hdr http.Header) (int, string, http.Header) {
+	t.Helper()
 	req, err := http.NewRequest(method, "http://flare"+path, nil)
 	if err != nil {
 		t.Fatal(err)

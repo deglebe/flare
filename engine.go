@@ -8,7 +8,7 @@ import (
 )
 
 // fasthttp router
-// trailing slashes are significant and never redirected/stripped
+// trailing slashes are significant by default; see RedirectTrailingSlash
 type Engine struct {
 	trees  [mCount]*node
 	static [mCount]map[string][]Handler // filled at freeze; exact static paths only
@@ -20,6 +20,10 @@ type Engine struct {
 	noRouteStack  []Handler
 	noMethodStack []Handler
 	frozen        bool
+
+	// when true, miss that matches same method with slash flipped redirects
+	// (301 GET, 307 otherwise). default false keeps strict /a vs /a/
+	RedirectTrailingSlash bool
 
 	trustedProxies  []*net.IPNet
 	remoteIPHeaders []string // nil -> X-Forwarded-For, X-Real-IP
@@ -209,6 +213,21 @@ func (e *Engine) Handler() fasthttp.RequestHandler {
 
 		c.params = c.params[:0]
 		c.index = -1
+		if e.RedirectTrailingSlash && id >= 0 && path != "/" {
+			if alt := trailingSlashAlt(path); e.methodHasPath(id, alt) {
+				code := fasthttp.StatusTemporaryRedirect
+				if method == fasthttp.MethodGet {
+					code = fasthttp.StatusMovedPermanently
+				}
+				if q := rc.URI().QueryString(); len(q) > 0 {
+					c.Redirect(code, alt+"?"+b2s(q))
+				} else {
+					c.Redirect(code, alt)
+				}
+				releaseCtx(c)
+				return
+			}
+		}
 		if e.pathExists(path) {
 			if e.noMethodStack != nil {
 				c.handlers = e.noMethodStack
@@ -224,6 +243,33 @@ func (e *Engine) Handler() fasthttp.RequestHandler {
 		}
 		releaseCtx(c)
 	}
+}
+
+// flip trailing slash; "" if path is "/" or empty
+func trailingSlashAlt(path string) string {
+	n := len(path)
+	if n < 2 {
+		return ""
+	}
+	if path[n-1] == '/' {
+		return path[:n-1]
+	}
+	return path + "/"
+}
+
+// true if method id has a route for path
+func (e *Engine) methodHasPath(id int, path string) bool {
+	if path == "" {
+		return false
+	}
+	if s := e.static[id]; s != nil && s[path] != nil {
+		return true
+	}
+	if root := e.trees[id]; root != nil {
+		var ps []param
+		return root.getValue(path, &ps) != nil
+	}
+	return false
 }
 
 // true if path matches under any method

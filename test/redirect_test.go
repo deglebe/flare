@@ -1,8 +1,6 @@
 package flare_test
 
 import (
-	"net"
-	"net/http"
 	"strings"
 	"testing"
 
@@ -31,29 +29,15 @@ func TestRedirect(t *testing.T) {
 	}
 	ln := fasthttputil.NewInmemoryListener()
 	go fasthttp.Serve(ln, e.Handler())
-
-	client := http.Client{
-		Transport: &http.Transport{
-			Dial: func(network, addr string) (net.Conn, error) { return ln.Dial() },
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+	client := noFollowClient(ln)
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := client.Get("http://flare/" + tc.name)
-			if err != nil {
-				t.Fatal(err)
+			status, _, hdr := doReqClient(t, client, "GET", "/"+tc.name, nil)
+			if status != tc.code {
+				t.Fatalf("status: %d want %d", status, tc.code)
 			}
-			defer res.Body.Close()
-
-			if res.StatusCode != tc.code {
-				t.Fatalf("status: %d want %d", res.StatusCode, tc.code)
-			}
-			loc := res.Header.Get("Location")
-			if !strings.HasSuffix(loc, "/new") {
+			if loc := hdr.Get("Location"); !strings.HasSuffix(loc, "/new") {
 				t.Fatalf("Location: %q", loc)
 			}
 		})
